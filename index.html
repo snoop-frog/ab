@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Abstract Blockchain RPC Checker</title>
+  <title>Masters Abstract Check</title>
   <style>
     /* Reset and Base Styles */
     body {
@@ -92,12 +92,17 @@
 
   <!-- Overlay Content -->
   <div class="content">
-    <h1>Abstract Blockchain RPC Checker</h1>
+    <h1>Masters Abstract Check</h1>
     <p>Monitoring RPC: <span id="rpc-url">https://abstract.leakedrpc.com/</span></p>
     <div id="status" class="not-live">Checking RPC status...</div>
     <div id="nope-container" class="nope-container"></div>
     <!-- Test Button -->
-    <button id="test-button" class="test-button">Simulate Live RPC</button>
+    <button id="test-button" class="test-button">What Happens When It's Live (click button to see - approve notifications)</button>
+  </div>
+
+  <!-- SoundCloud Embed Container -->
+  <div id="soundcloud-container" style="display: none;">
+    <iframe id="soundcloud-player" src="" width="0" height="0" allow="autoplay" style="position: absolute; left: -9999px;"></iframe>
   </div>
 
   <script>
@@ -178,6 +183,7 @@
     const statusElement = document.getElementById("status");
     const nopeContainer = document.getElementById("nope-container");
     const testButton = document.getElementById("test-button");
+    const soundcloudPlayer = document.getElementById("soundcloud-player");
 
     async function checkRPC() {
       try {
@@ -215,7 +221,10 @@
             appendYes(`Current block: ${blockNumber}`);
             if (!notified) {
               playLoudSound(); // Play sound and music first
-              triggerNotification(blockNumber); // Then trigger notification and alert
+              // Delay the notification by 5 seconds
+              setTimeout(() => {
+                triggerNotification(blockNumber); // Then trigger notification
+              }, 5000);
               notified = true; // Prevent multiple alerts
             }
           } else {
@@ -243,19 +252,18 @@
     }
 
     function triggerNotification(blockNumber) {
-      // Trigger alert after sound has started
-      alert(`🚀 Abstract Blockchain RPC is live! Current Block: ${blockNumber}`);
+      // Browser Notification
       if (Notification.permission === "granted") {
         new Notification("Abstract Blockchain Live!", {
           body: `Current Block: ${blockNumber}`,
-          icon: "https://example.com/icon.png", // Replace with a valid icon URL
+          icon: "https://yourdomain.com/path-to-icon.png", // Replace with a valid icon URL
         });
       } else {
         Notification.requestPermission().then(permission => {
           if (permission === "granted") {
             new Notification("Abstract Blockchain Live!", {
               body: `Current Block: ${blockNumber}`,
-              icon: "https://example.com/icon.png", // Replace with a valid icon URL
+              icon: "https://yourdomain.com/path-to-icon.png", // Replace with a valid icon URL
             });
           }
         });
@@ -264,19 +272,18 @@
 
     function playLoudSound() {
       // Play the loud beep sound
-      const audio = new Audio("https://example.com/loud-beep.mp3"); // Replace with a valid loud beep sound URL
+      const audio = new Audio("https://yourdomain.com/path-to-loud-beep.mp3"); // Replace with a valid loud beep sound URL
       audio.play();
 
       // Play the song from SoundCloud using the correct embed URL
-      const soundCloudIframe = document.createElement("iframe");
-      soundCloudIframe.src = SONG_EMBED_URL;
-      soundCloudIframe.width = "1";
-      soundCloudIframe.height = "1";
-      soundCloudIframe.style.opacity = "0"; // Make iframe invisible
-      soundCloudIframe.style.position = "absolute";
-      soundCloudIframe.style.left = "-9999px"; // Position it off-screen
-      soundCloudIframe.setAttribute("allow", "autoplay"); // Allow autoplay
-      document.body.appendChild(soundCloudIframe);
+      // Ensure the iframe is minimally visible to comply with autoplay policies
+      soundcloudPlayer.src = SONG_EMBED_URL;
+      soundcloudPlayer.style.width = "1px";
+      soundcloudPlayer.style.height = "1px";
+      soundcloudPlayer.style.opacity = "0.1"; // Slightly visible
+      soundcloudPlayer.style.position = "absolute";
+      soundcloudPlayer.style.left = "-10px"; // Slightly on-screen
+      // The iframe is already in the DOM, just set the src to start playing
     }
 
     function startChecking() {
@@ -306,7 +313,10 @@
         appendYes(`Current block: ${simulatedBlockNumber}`);
         if (!notified) {
           playLoudSound(); // Play sound and music first
-          triggerNotification(simulatedBlockNumber); // Then trigger notification and alert
+          // Delay the notification by 5 seconds
+          setTimeout(() => {
+            triggerNotification(simulatedBlockNumber); // Then trigger notification
+          }, 5000);
           notified = true; // Prevent multiple alerts
         }
         // Optionally disable the test button after simulation

@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Abstract Blockchain RPC Checker</title>
+  <style>
+    /* Reset and Base Styles */
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: black;
+      color: #00FF00;
+      font-family: 'Courier New', Courier, monospace;
+    }
+
+    /* Canvas for Matrix Effect */
+    #matrixCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+    }
+
+    /* Overlay Content Styles */
+    .content {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding-top: 50px;
+    }
+
+    h1 {
+      font-size: 3em;
+      margin-bottom: 20px;
+      color: #00FF00;
+    }
+
+    p {
+      font-size: 1.2em;
+      color: #00FF00;
+    }
+
+    #status {
+      margin-top: 20px;
+      font-size: 1.5em;
+    }
+
+    .live {
+      color: #00FF00;
+      font-weight: bold;
+    }
+
+    .not-live {
+      color: #FF0000;
+      font-weight: bold;
+    }
+
+    .nope-container {
+      margin-top: 20px;
+      font-size: 1.2em;
+      color: #FF0000; /* Initial color for "NOPE" */
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    /* Test Button Styles */
+    .test-button {
+      margin-top: 30px;
+      padding: 10px 20px;
+      font-size: 1em;
+      background-color: #444;
+      color: #00FF00;
+      border: 2px solid #00FF00;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    .test-button:hover {
+      background-color: #00FF00;
+      color: #000;
+    }
+  </style>
+</head>
+<body>
+  <!-- Canvas for Matrix Effect -->
+  <canvas id="matrixCanvas"></canvas>
+
+  <!-- Overlay Content -->
+  <div class="content">
+    <h1>Abstract Blockchain RPC Checker</h1>
+    <p>Monitoring RPC: <span id="rpc-url">https://abstract.leakedrpc.com/</span></p>
+    <div id="status" class="not-live">Checking RPC status...</div>
+    <div id="nope-container" class="nope-container"></div>
+    <!-- Test Button -->
+    <button id="test-button" class="test-button">Simulate Live RPC</button>
+  </div>
+
+  <script>
+    // =========================
+    // Matrix Effect Implementation
+    // =========================
+
+    const canvas = document.getElementById('matrixCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Set canvas to full screen
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // Initial Matrix Effect Settings
+    let isLive = false; // RPC status flag
+    let characters = "NOPE"; // Initial characters
+    let textColor = "#FF0000"; // Initial color (red)
+    const fontSize = 16;
+    const columns = Math.floor(canvas.width / fontSize);
+    const drops = [];
+
+    // Initialize drops for each column
+    for (let i = 0; i < columns; i++) {
+      drops[i] = {
+        y: Math.random() * canvas.height / fontSize,
+        charIndex: 0
+      };
+    }
+
+    // Function to draw the Matrix effect
+    function drawMatrix() {
+      // Slightly transparent background to create the trailing effect
+      ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Set text color based on RPC status
+      ctx.fillStyle = textColor;
+      ctx.font = `${fontSize}px Courier New`;
+
+      for (let i = 0; i < drops.length; i++) {
+        const drop = drops[i];
+        const text = characters.charAt(drop.charIndex);
+        ctx.fillText(text, i * fontSize, drop.y * fontSize);
+
+        // Update y position
+        drop.y += 1;
+
+        // Reset drop if it goes beyond the canvas height
+        if (drop.y * fontSize > canvas.height && Math.random() > 0.975) {
+          drop.y = 0;
+          drop.charIndex = 0;
+        } else {
+          // Move to next character
+          drop.charIndex = (drop.charIndex + 1) % characters.length;
+        }
+      }
+    }
+
+    // Set interval for drawing (approx. 30fps)
+    setInterval(drawMatrix, 33);
+
+    // =========================
+    // RPC Checker Implementation
+    // =========================
+
+    const RPC_URL = "https://abstract.leakedrpc.com/";
+    const CHECK_INTERVAL = 10000; // Check every 10 seconds
+    const TARGET_BLOCK = 230798; // Block number threshold
+    const SONG_EMBED_URL = "https://w.soundcloud.com/player/?url=https%3A//soundcloud.com/defectedrecords/endor-pump-it-up-extended-mix&auto_play=true";
+
+    let notified = false; // Prevent multiple alerts
+
+    const statusElement = document.getElementById("status");
+    const nopeContainer = document.getElementById("nope-container");
+    const testButton = document.getElementById("test-button");
+
+    async function checkRPC() {
+      try {
+        const blockNumberResponse = await fetch(RPC_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            method: "eth_blockNumber",
+            params: [],
+            id: 1,
+          }),
+        });
+
+        if (!blockNumberResponse.ok) {
+          appendNope("Block number request failed.");
+          return;
+        }
+
+        const blockNumberData = await blockNumberResponse.json();
+        if (!blockNumberData.result) {
+          appendNope("No block number available.");
+          return;
+        }
+
+        const blockNumber = parseInt(blockNumberData.result, 16);
+
+        if (blockNumber >= TARGET_BLOCK) {
+          if (!isLive) { // Transition to live state
+            isLive = true;
+            characters = "YES";
+            textColor = "#00FF00"; // Change text color to green
+            statusElement.textContent = `RPC is live! Current Block: ${blockNumber}`;
+            statusElement.className = "live";
+            appendYes(`Current block: ${blockNumber}`);
+            if (!notified) {
+              playLoudSound(); // Play sound and music first
+              triggerNotification(blockNumber); // Then trigger notification and alert
+              notified = true; // Prevent multiple alerts
+            }
+          } else {
+            // Already live, update the block number
+            statusElement.textContent = `RPC is live! Current Block: ${blockNumber}`;
+            nopeContainer.textContent = `Current block: ${blockNumber} YES `;
+          }
+        } else {
+          appendNope(`Current block: ${blockNumber}`);
+        }
+      } catch (error) {
+        appendNope(`Error: ${error.message}`);
+        statusElement.textContent = "Error checking RPC status.";
+        statusElement.className = "not-live";
+      }
+    }
+
+    function appendNope(message = "NOPE") {
+      statusElement.textContent = "RPC is not functional yet.";
+      nopeContainer.textContent += `${message} NOPE `;
+    }
+
+    function appendYes(message = "YES") {
+      nopeContainer.textContent += `${message} YES `;
+    }
+
+    function triggerNotification(blockNumber) {
+      // Trigger alert after sound has started
+      alert(`🚀 Abstract Blockchain RPC is live! Current Block: ${blockNumber}`);
+      if (Notification.permission === "granted") {
+        new Notification("Abstract Blockchain Live!", {
+          body: `Current Block: ${blockNumber}`,
+          icon: "https://example.com/icon.png", // Replace with a valid icon URL
+        });
+      } else {
+        Notification.requestPermission().then(permission => {
+          if (permission === "granted") {
+            new Notification("Abstract Blockchain Live!", {
+              body: `Current Block: ${blockNumber}`,
+              icon: "https://example.com/icon.png", // Replace with a valid icon URL
+            });
+          }
+        });
+      }
+    }
+
+    function playLoudSound() {
+      // Play the loud beep sound
+      const audio = new Audio("https://example.com/loud-beep.mp3"); // Replace with a valid loud beep sound URL
+      audio.play();
+
+      // Play the song from SoundCloud using the correct embed URL
+      const soundCloudIframe = document.createElement("iframe");
+      soundCloudIframe.src = SONG_EMBED_URL;
+      soundCloudIframe.width = "1";
+      soundCloudIframe.height = "1";
+      soundCloudIframe.style.opacity = "0"; // Make iframe invisible
+      soundCloudIframe.style.position = "absolute";
+      soundCloudIframe.style.left = "-9999px"; // Position it off-screen
+      soundCloudIframe.setAttribute("allow", "autoplay"); // Allow autoplay
+      document.body.appendChild(soundCloudIframe);
+    }
+
+    function startChecking() {
+      checkRPC(); // Check immediately on page load
+      setInterval(checkRPC, CHECK_INTERVAL); // Repeat every 10 seconds
+    }
+
+    // Request Notification permission on page load
+    if (Notification.permission !== "granted" && Notification.permission !== "denied") {
+      Notification.requestPermission();
+    }
+
+    // =========================
+    // Test Button Implementation
+    // =========================
+
+    testButton.addEventListener('click', () => {
+      if (!isLive) {
+        // Simulate an increased block height
+        const simulatedBlockNumber = TARGET_BLOCK + 1; // Any number greater than TARGET_BLOCK
+        console.log("Simulating RPC live state with block number:", simulatedBlockNumber);
+        isLive = true;
+        characters = "YES";
+        textColor = "#00FF00"; // Change text color to green
+        statusElement.textContent = `RPC is live! Current Block: ${simulatedBlockNumber}`;
+        statusElement.className = "live";
+        appendYes(`Current block: ${simulatedBlockNumber}`);
+        if (!notified) {
+          playLoudSound(); // Play sound and music first
+          triggerNotification(simulatedBlockNumber); // Then trigger notification and alert
+          notified = true; // Prevent multiple alerts
+        }
+        // Optionally disable the test button after simulation
+        testButton.disabled = true;
+        testButton.textContent = "RPC Live Simulated";
+      }
+    });
+
+    startChecking();
+  </script>
+</body>
+</html>

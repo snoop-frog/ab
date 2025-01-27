@@ -232,7 +232,7 @@
     // =========================
 
     const RPC_URL = "https://abstract.leakedrpc.com/";
-    const CHECK_INTERVAL = 10000; // Check every 10 seconds
+    const CHECK_INTERVAL = 3000; // Check every 3 seconds
     const TARGET_BLOCK = 230798; // Block number threshold
     const SONG_EMBED_URL = "https://w.soundcloud.com/player/?url=https%3A//soundcloud.com/defectedrecords/endor-pump-it-up-extended-mix&auto_play=true";
 
@@ -248,6 +248,8 @@
     const timeSinceElement = document.getElementById("time-since");
     const testButton = document.getElementById("test-button");
     const soundcloudPlayer = document.getElementById("soundcloud-player");
+
+    let lastFetchedBlockNumber = null; // To track block number changes
 
     async function checkRPC() {
       try {
@@ -448,7 +450,7 @@
 
     function startChecking() {
       checkRPC(); // Check immediately on page load
-      setInterval(checkRPC, CHECK_INTERVAL); // Repeat every 10 seconds
+      setInterval(checkRPC, CHECK_INTERVAL); // Repeat every 3 seconds
     }
 
     // Request Notification permission on page load

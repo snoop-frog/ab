@@ -68,8 +68,8 @@
       white-space: nowrap;
     }
 
-    /* New Elements for Current Block and Time Since Last Block */
-    #current-block, #time-since {
+    /* New Elements for Current Block, Gas Price, and Time Since Last Block */
+    #current-block, #gas-price, #time-since {
       width: 100%;
       text-align: center;
       margin-top: 10px;
@@ -78,6 +78,12 @@
     #current-block {
       font-size: 2.5em;
       font-weight: bold;
+      color: #00FF00;
+      word-wrap: break-word;
+    }
+
+    #gas-price {
+      font-size: 2em;
       color: #00FF00;
       word-wrap: break-word;
     }
@@ -111,6 +117,10 @@
         font-size: 2em;
       }
 
+      #gas-price {
+        font-size: 1.5em;
+      }
+
       h1 {
         font-size: 2.5em;
       }
@@ -127,8 +137,9 @@
 
   <!-- Overlay Content -->
   <div class="content">
-    <!-- New Elements for Current Block and Time Since Last Block -->
+    <!-- New Elements for Current Block, Gas Price, and Time Since Last Block -->
     <div id="current-block">Current Block: N/A</div>
+    <div id="gas-price">Gas Price: N/A</div>
     <div id="time-since">Time Since Last Block: 0s</div>
 
     <h1>Masters Abstract Check</h1>
@@ -233,12 +244,14 @@
     const statusElement = document.getElementById("status");
     const nopeContainer = document.getElementById("nope-container");
     const currentBlockElement = document.getElementById("current-block");
+    const gasPriceElement = document.getElementById("gas-price"); // New Element
     const timeSinceElement = document.getElementById("time-since");
     const testButton = document.getElementById("test-button");
     const soundcloudPlayer = document.getElementById("soundcloud-player");
 
     async function checkRPC() {
       try {
+        // Fetch Block Number
         const blockNumberResponse = await fetch(RPC_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -290,6 +303,41 @@
       nopeContainer.textContent += `${message} YES `;
     }
 
+    async function fetchGasPrice() {
+      try {
+        const gasPriceResponse = await fetch(RPC_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            method: "eth_gasPrice",
+            params: [],
+            id: 2,
+          }),
+        });
+
+        if (!gasPriceResponse.ok) {
+          gasPriceElement.textContent = "Gas Price: N/A";
+          console.warn("Gas price request failed.");
+          return;
+        }
+
+        const gasPriceData = await gasPriceResponse.json();
+        if (!gasPriceData.result) {
+          gasPriceElement.textContent = "Gas Price: N/A";
+          console.warn("No gas price available.");
+          return;
+        }
+
+        const gasPriceWei = BigInt(gasPriceData.result);
+        const gasPriceGwei = Number(gasPriceWei) / 1e9;
+        gasPriceElement.textContent = `Gas Price: ${gasPriceGwei.toFixed(2)} gwei`;
+      } catch (error) {
+        gasPriceElement.textContent = "Gas Price: N/A";
+        console.warn(`Error fetching gas price: ${error.message}`);
+      }
+    }
+
     function updateState(currentStatus, blockNumber = null) {
       if (currentStatus && !previousIsLive) {
         // RPC has transitioned from not live to live
@@ -304,6 +352,7 @@
           updateTimeSince();
           if (timerInterval) clearInterval(timerInterval);
           timerInterval = setInterval(updateTimeSince, 1000);
+          fetchGasPrice(); // Fetch gas price when RPC becomes live
         }
         playLoudSound(); // Play sound and music first
         // Delay the notification by 5 seconds
@@ -316,6 +365,8 @@
         characters = "NOPE";
         textColor = "#FF0000"; // Change text color to red
         statusElement.textContent = "RPC is not functional yet.";
+        currentBlockElement.textContent = "Current Block: N/A";
+        gasPriceElement.textContent = "Gas Price: N/A";
         if (timerInterval) {
           clearInterval(timerInterval);
           timerInterval = null;
@@ -327,6 +378,7 @@
         currentBlockElement.textContent = `Current Block: ${currentBlock}`;
         lastBlockTime = new Date();
         timeSinceElement.textContent = "Time Since Last Block: 0s";
+        fetchGasPrice(); // Update gas price on new block
       }
 
       // Update previousIsLive for next comparison
@@ -401,6 +453,8 @@
         console.log("Simulating RPC live state with block number:", simulatedBlockNumber);
         appendYes(`Current block: ${simulatedBlockNumber}`);
         updateState(true, simulatedBlockNumber);
+        // Optionally set a simulated gas price
+        gasPriceElement.textContent = "Gas Price: 50.00 gwei"; // Example value
         // Optionally disable the test button after simulation
         testButton.disabled = true;
         testButton.textContent = "RPC Live Simulated";

@@ -30,18 +30,19 @@
       position: relative;
       z-index: 1;
       text-align: center;
-      padding-top: 50px;
+      padding: 20px;
     }
 
     h1 {
       font-size: 3em;
-      margin-bottom: 20px;
+      margin: 20px 0;
       color: #00FF00;
     }
 
     p {
       font-size: 1.2em;
       color: #00FF00;
+      margin: 10px 0;
     }
 
     #status {
@@ -67,6 +68,25 @@
       white-space: nowrap;
     }
 
+    /* New Elements for Current Block and Time Since Last Block */
+    #current-block, #time-since {
+      width: 100%;
+      text-align: center;
+      margin-top: 10px;
+    }
+
+    #current-block {
+      font-size: 2.5em;
+      font-weight: bold;
+      color: #00FF00;
+      word-wrap: break-word;
+    }
+
+    #time-since {
+      font-size: 1.5em;
+      color: #00FF00;
+    }
+
     /* Test Button Styles */
     .test-button {
       margin-top: 30px;
@@ -84,6 +104,21 @@
       background-color: #00FF00;
       color: #000;
     }
+
+    /* Responsive Adjustments */
+    @media (max-width: 600px) {
+      #current-block {
+        font-size: 2em;
+      }
+
+      h1 {
+        font-size: 2.5em;
+      }
+
+      p, #status, #time-since {
+        font-size: 1em;
+      }
+    }
   </style>
 </head>
 <body>
@@ -92,10 +127,15 @@
 
   <!-- Overlay Content -->
   <div class="content">
+    <!-- New Elements for Current Block and Time Since Last Block -->
+    <div id="current-block">Current Block: N/A</div>
+    <div id="time-since">Time Since Last Block: 0s</div>
+
     <h1>Masters Abstract Check</h1>
     <p>Monitoring RPC: <span id="rpc-url">https://abstract.leakedrpc.com/</span></p>
     <div id="status" class="not-live">Checking RPC status...</div>
     <div id="nope-container" class="nope-container"></div>
+
     <!-- Test Button -->
     <button id="test-button" class="test-button">What Happens When It's Live (click button to see - approve notifications)</button>
   </div>
@@ -126,16 +166,23 @@
     let characters = "NOPE"; // Initial characters
     let textColor = "#FF0000"; // Initial color (red)
     const fontSize = 16;
-    const columns = Math.floor(canvas.width / fontSize);
+    let columns = Math.floor(canvas.width / fontSize);
     const drops = [];
 
     // Initialize drops for each column
-    for (let i = 0; i < columns; i++) {
-      drops[i] = {
-        y: Math.random() * canvas.height / fontSize,
-        charIndex: 0
-      };
+    function initializeDrops() {
+      columns = Math.floor(canvas.width / fontSize);
+      drops.length = 0; // Clear existing drops
+      for (let i = 0; i < columns; i++) {
+        drops[i] = {
+          y: Math.random() * canvas.height / fontSize,
+          charIndex: 0
+        };
+      }
     }
+    initializeDrops();
+
+    window.addEventListener('resize', initializeDrops);
 
     // Function to draw the Matrix effect
     function drawMatrix() {
@@ -178,10 +225,15 @@
     const TARGET_BLOCK = 230798; // Block number threshold
     const SONG_EMBED_URL = "https://w.soundcloud.com/player/?url=https%3A//soundcloud.com/defectedrecords/endor-pump-it-up-extended-mix&auto_play=true";
 
-    let notified = false; // Prevent multiple alerts
+    let previousIsLive = false; // Tracks the previous state
+    let currentBlock = null; // Stores the current block number
+    let lastBlockTime = null; // Timestamp of the last block received
+    let timerInterval = null; // Interval for updating time since last block
 
     const statusElement = document.getElementById("status");
     const nopeContainer = document.getElementById("nope-container");
+    const currentBlockElement = document.getElementById("current-block");
+    const timeSinceElement = document.getElementById("time-since");
     const testButton = document.getElementById("test-button");
     const soundcloudPlayer = document.getElementById("soundcloud-player");
 
@@ -200,43 +252,29 @@
 
         if (!blockNumberResponse.ok) {
           appendNope("Block number request failed.");
+          updateState(false);
           return;
         }
 
         const blockNumberData = await blockNumberResponse.json();
         if (!blockNumberData.result) {
           appendNope("No block number available.");
+          updateState(false);
           return;
         }
 
         const blockNumber = parseInt(blockNumberData.result, 16);
 
         if (blockNumber >= TARGET_BLOCK) {
-          if (!isLive) { // Transition to live state
-            isLive = true;
-            characters = "YES";
-            textColor = "#00FF00"; // Change text color to green
-            statusElement.textContent = `RPC is live! Current Block: ${blockNumber}`;
-            statusElement.className = "live";
-            appendYes(`Current block: ${blockNumber}`);
-            if (!notified) {
-              playLoudSound(); // Play sound and music first
-              // Delay the notification by 5 seconds
-              setTimeout(() => {
-                triggerNotification(blockNumber); // Then trigger notification
-              }, 5000);
-              notified = true; // Prevent multiple alerts
-            }
-          } else {
-            // Already live, update the block number
-            statusElement.textContent = `RPC is live! Current Block: ${blockNumber}`;
-            nopeContainer.textContent = `Current block: ${blockNumber} YES `;
-          }
+          appendYes(`Current block: ${blockNumber}`);
+          updateState(true, blockNumber);
         } else {
           appendNope(`Current block: ${blockNumber}`);
+          updateState(false);
         }
       } catch (error) {
         appendNope(`Error: ${error.message}`);
+        updateState(false);
         statusElement.textContent = "Error checking RPC status.";
         statusElement.className = "not-live";
       }
@@ -248,7 +286,51 @@
     }
 
     function appendYes(message = "YES") {
+      statusElement.textContent = "RPC is live!";
       nopeContainer.textContent += `${message} YES `;
+    }
+
+    function updateState(currentStatus, blockNumber = null) {
+      if (currentStatus && !previousIsLive) {
+        // RPC has transitioned from not live to live
+        isLive = true;
+        characters = "YES";
+        textColor = "#00FF00"; // Change text color to green
+        if (blockNumber !== null) {
+          statusElement.textContent = `RPC is live! Current Block: ${blockNumber}`;
+          currentBlock = blockNumber;
+          currentBlockElement.textContent = `Current Block: ${currentBlock}`;
+          lastBlockTime = new Date();
+          updateTimeSince();
+          if (timerInterval) clearInterval(timerInterval);
+          timerInterval = setInterval(updateTimeSince, 1000);
+        }
+        playLoudSound(); // Play sound and music first
+        // Delay the notification by 5 seconds
+        setTimeout(() => {
+          triggerNotification(blockNumber);
+        }, 5000);
+      } else if (!currentStatus && previousIsLive) {
+        // RPC has transitioned from live to not live
+        isLive = false;
+        characters = "NOPE";
+        textColor = "#FF0000"; // Change text color to red
+        statusElement.textContent = "RPC is not functional yet.";
+        if (timerInterval) {
+          clearInterval(timerInterval);
+          timerInterval = null;
+        }
+        timeSinceElement.textContent = "Time Since Last Block: N/A";
+      } else if (currentStatus && previousIsLive && blockNumber !== null) {
+        // RPC is still live, update block number and reset timer
+        currentBlock = blockNumber;
+        currentBlockElement.textContent = `Current Block: ${currentBlock}`;
+        lastBlockTime = new Date();
+        timeSinceElement.textContent = "Time Since Last Block: 0s";
+      }
+
+      // Update previousIsLive for next comparison
+      previousIsLive = currentStatus;
     }
 
     function triggerNotification(blockNumber) {
@@ -273,7 +355,9 @@
     function playLoudSound() {
       // Play the loud beep sound
       const audio = new Audio("https://yourdomain.com/path-to-loud-beep.mp3"); // Replace with a valid loud beep sound URL
-      audio.play();
+      audio.play().catch(error => {
+        console.error("Error playing beep sound:", error);
+      });
 
       // Play the song from SoundCloud using the correct embed URL
       // Ensure the iframe is minimally visible to comply with autoplay policies
@@ -284,6 +368,16 @@
       soundcloudPlayer.style.position = "absolute";
       soundcloudPlayer.style.left = "-10px"; // Slightly on-screen
       // The iframe is already in the DOM, just set the src to start playing
+    }
+
+    function updateTimeSince() {
+      if (!lastBlockTime) {
+        timeSinceElement.textContent = "Time Since Last Block: N/A";
+        return;
+      }
+      const now = new Date();
+      const diffInSeconds = Math.floor((now - lastBlockTime) / 1000);
+      timeSinceElement.textContent = `Time Since Last Block: ${diffInSeconds}s`;
     }
 
     function startChecking() {
@@ -305,20 +399,8 @@
         // Simulate an increased block height
         const simulatedBlockNumber = TARGET_BLOCK + 1; // Any number greater than TARGET_BLOCK
         console.log("Simulating RPC live state with block number:", simulatedBlockNumber);
-        isLive = true;
-        characters = "YES";
-        textColor = "#00FF00"; // Change text color to green
-        statusElement.textContent = `RPC is live! Current Block: ${simulatedBlockNumber}`;
-        statusElement.className = "live";
         appendYes(`Current block: ${simulatedBlockNumber}`);
-        if (!notified) {
-          playLoudSound(); // Play sound and music first
-          // Delay the notification by 5 seconds
-          setTimeout(() => {
-            triggerNotification(simulatedBlockNumber); // Then trigger notification
-          }, 5000);
-          notified = true; // Prevent multiple alerts
-        }
+        updateState(true, simulatedBlockNumber);
         // Optionally disable the test button after simulation
         testButton.disabled = true;
         testButton.textContent = "RPC Live Simulated";

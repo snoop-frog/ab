@@ -239,7 +239,6 @@
     let previousIsLive = false; // Tracks the previous state
     let currentBlock = null; // Stores the current block number
     let lastBlockTime = null; // Timestamp of the last block received
-    let timerInterval = null; // Interval for updating time since last block
 
     const statusElement = document.getElementById("status");
     const nopeContainer = document.getElementById("nope-container");
@@ -250,6 +249,7 @@
     const soundcloudPlayer = document.getElementById("soundcloud-player");
 
     let lastFetchedBlockNumber = null; // To track block number changes
+    let audioElements = []; // To keep track of beep sounds
 
     async function checkRPC() {
       try {
@@ -267,29 +267,52 @@
 
         if (!blockNumberResponse.ok) {
           appendNope("Block number request failed.");
-          updateState(false);
+          updateState(false, null);
           return;
         }
 
         const blockNumberData = await blockNumberResponse.json();
         if (!blockNumberData.result) {
           appendNope("No block number available.");
-          updateState(false);
+          updateState(false, null);
           return;
         }
 
         const blockNumber = parseInt(blockNumberData.result, 16);
 
-        if (blockNumber >= TARGET_BLOCK) {
-          appendYes(`Current block: ${blockNumber}`);
-          updateState(true, blockNumber);
+        if (lastFetchedBlockNumber === null) {
+          // First fetch
+          lastFetchedBlockNumber = blockNumber;
+          if (blockNumber >= TARGET_BLOCK) {
+            appendYes(`Current block: ${blockNumber}`);
+            updateState(true, blockNumber);
+          } else {
+            appendNope(`Current block: ${blockNumber}`);
+            updateState(false, blockNumber);
+          }
+          return;
+        }
+
+        if (blockNumber > lastFetchedBlockNumber) {
+          // New block detected
+          lastFetchedBlockNumber = blockNumber;
+          if (blockNumber >= TARGET_BLOCK) {
+            appendYes(`Current block: ${blockNumber}`);
+            updateState(true, blockNumber);
+          } else {
+            appendNope(`Current block: ${blockNumber}`);
+            updateState(false, blockNumber);
+          }
         } else {
-          appendNope(`Current block: ${blockNumber}`);
-          updateState(false);
+          // No new block detected in this check
+          if (isLive) {
+            console.log("No new block detected in 3 seconds. Assuming RPC has paused.");
+            updateState(false, blockNumber);
+          }
         }
       } catch (error) {
         appendNope(`Error: ${error.message}`);
-        updateState(false);
+        updateState(false, null);
         statusElement.textContent = "Error checking RPC status.";
         statusElement.className = "not-live";
       }
@@ -348,15 +371,12 @@
         textColor = "#00FF00"; // Change text color to green
         if (blockNumber !== null) {
           statusElement.textContent = `RPC is live! Current Block: ${blockNumber}`;
-          currentBlock = blockNumber;
           currentBlockElement.textContent = `Current Block: ${currentBlock}`;
           lastBlockTime = new Date();
           updateTimeSince();
-          if (timerInterval) clearInterval(timerInterval);
-          timerInterval = setInterval(updateTimeSince, 1000);
           fetchGasPrice(); // Fetch gas price when RPC becomes live
         }
-        playLoudSound(); // Play sound and music first
+        playAudio(); // Play sound and music first
         // Delay the notification by 5 seconds
         setTimeout(() => {
           triggerNotification(blockNumber);
@@ -369,21 +389,9 @@
         statusElement.textContent = "RPC is not functional yet.";
         currentBlockElement.textContent = "Current Block: N/A";
         gasPriceElement.textContent = "Gas Price: N/A";
-        if (timerInterval) {
-          clearInterval(timerInterval);
-          timerInterval = null;
-        }
         timeSinceElement.textContent = "Time Since Last Block: N/A";
         stopAudio(); // Stop audio playback
-      } else if (currentStatus && previousIsLive && blockNumber !== null) {
-        // RPC is still live, update block number and reset timer
-        currentBlock = blockNumber;
-        currentBlockElement.textContent = `Current Block: ${currentBlock}`;
-        lastBlockTime = new Date();
-        timeSinceElement.textContent = "Time Since Last Block: 0s";
-        fetchGasPrice(); // Update gas price on new block
       }
-
       // Update previousIsLive for next comparison
       previousIsLive = currentStatus;
     }
@@ -407,15 +415,15 @@
       }
     }
 
-    function playLoudSound() {
+    function playAudio() {
       // Play the loud beep sound
-      const audio = new Audio("https://yourdomain.com/path-to-loud-beep.mp3"); // Replace with a valid loud beep sound URL
-      audio.play().catch(error => {
+      const beepAudio = new Audio("https://yourdomain.com/path-to-loud-beep.mp3"); // Replace with a valid loud beep sound URL
+      beepAudio.play().catch(error => {
         console.error("Error playing beep sound:", error);
       });
+      audioElements.push(beepAudio); // Keep track to stop if needed
 
       // Play the song from SoundCloud using the correct embed URL
-      // Ensure the iframe is minimally visible to comply with autoplay policies
       soundcloudPlayer.src = SONG_EMBED_URL;
       soundcloudPlayer.style.width = "1px";
       soundcloudPlayer.style.height = "1px";
@@ -426,9 +434,14 @@
     }
 
     function stopAudio() {
-      // Stop the beep sound and SoundCloud music
-      // Assuming the beep sound is short and doesn't need to be stopped manually
-      // To stop SoundCloud music, reset the iframe src
+      // Stop all beep sounds
+      audioElements.forEach(audio => {
+        audio.pause();
+        audio.currentTime = 0;
+      });
+      audioElements = [];
+
+      // Stop SoundCloud music by resetting the iframe src
       soundcloudPlayer.src = "";
     }
 
@@ -440,12 +453,6 @@
       const now = new Date();
       const diffInSeconds = Math.floor((now - lastBlockTime) / 1000);
       timeSinceElement.textContent = `Time Since Last Block: ${diffInSeconds}s`;
-
-      if (diffInSeconds > 10 && isLive) {
-        // No new block in 10 seconds, assume paused
-        console.log("No new block detected in 10 seconds. Assuming RPC has paused.");
-        updateState(false);
-      }
     }
 
     function startChecking() {
@@ -469,7 +476,7 @@
         console.log("Simulating RPC live state with block number:", simulatedBlockNumber);
         appendYes(`Current block: ${simulatedBlockNumber}`);
         updateState(true, simulatedBlockNumber);
-        // Optionally set a simulated gas price
+        // Set a simulated gas price
         gasPriceElement.textContent = "Gas Price: 50.00 gwei"; // Example value
         // Optionally disable the test button after simulation
         testButton.disabled = true;

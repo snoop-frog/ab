@@ -238,7 +238,6 @@
 
     let previousIsLive = false; // Tracks the previous state
     let currentBlock = null; // Stores the current block number
-    let lastBlockTime = null; // Timestamp of the last block received
 
     const statusElement = document.getElementById("status");
     const nopeContainer = document.getElementById("nope-container");
@@ -250,6 +249,8 @@
 
     let lastFetchedBlockNumber = null; // To track block number changes
     let audioElements = []; // To keep track of beep sounds
+    let sameBlockCount = 0; // Counter for consecutive same block heights
+    const SAME_BLOCK_THRESHOLD = 3; // Number of consecutive same blocks to assume paused
 
     async function checkRPC() {
       try {
@@ -283,6 +284,7 @@
         if (lastFetchedBlockNumber === null) {
           // First fetch
           lastFetchedBlockNumber = blockNumber;
+          currentBlock = blockNumber; // Initialize current block
           if (blockNumber >= TARGET_BLOCK) {
             appendYes(`Current block: ${blockNumber}`);
             updateState(true, blockNumber);
@@ -296,19 +298,26 @@
         if (blockNumber > lastFetchedBlockNumber) {
           // New block detected
           lastFetchedBlockNumber = blockNumber;
-          if (blockNumber >= TARGET_BLOCK) {
-            appendYes(`Current block: ${blockNumber}`);
-            updateState(true, blockNumber);
-          } else {
+          currentBlock = blockNumber;
+          appendYes(`Current block: ${blockNumber}`);
+          updateState(true, blockNumber);
+          sameBlockCount = 0; // Reset counter
+        } else if (blockNumber === lastFetchedBlockNumber) {
+          // Same block detected
+          sameBlockCount += 1;
+          console.log(`Same block detected (${sameBlockCount}/${SAME_BLOCK_THRESHOLD})`);
+          if (sameBlockCount >= SAME_BLOCK_THRESHOLD && isLive) {
             appendNope(`Current block: ${blockNumber}`);
             updateState(false, blockNumber);
+          } else {
+            // Optionally, you can show intermediate "NOPE" messages
+            appendNope(`Current block: ${blockNumber}`);
           }
         } else {
-          // No new block detected in this check
-          if (isLive) {
-            console.log("No new block detected in 3 seconds. Assuming RPC has paused.");
-            updateState(false, blockNumber);
-          }
+          // Unexpected: block number decreased
+          console.warn(`Block number decreased from ${lastFetchedBlockNumber} to ${blockNumber}.`);
+          appendNope(`Current block: ${blockNumber}`);
+          updateState(false, blockNumber);
         }
       } catch (error) {
         appendNope(`Error: ${error.message}`);
@@ -387,7 +396,7 @@
         characters = "NOPE";
         textColor = "#FF0000"; // Change text color to red
         statusElement.textContent = "RPC is not functional yet.";
-        currentBlockElement.textContent = "Current Block: N/A";
+        currentBlockElement.textContent = `Current Block: ${currentBlock}`; // Always show latest block
         gasPriceElement.textContent = "Gas Price: N/A";
         timeSinceElement.textContent = "Time Since Last Block: N/A";
         stopAudio(); // Stop audio playback

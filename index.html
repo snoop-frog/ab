@@ -372,6 +372,7 @@
           timerInterval = null;
         }
         timeSinceElement.textContent = "Time Since Last Block: N/A";
+        stopAudio(); // Stop audio playback
       } else if (currentStatus && previousIsLive && blockNumber !== null) {
         // RPC is still live, update block number and reset timer
         currentBlock = blockNumber;
@@ -422,6 +423,13 @@
       // The iframe is already in the DOM, just set the src to start playing
     }
 
+    function stopAudio() {
+      // Stop the beep sound and SoundCloud music
+      // Assuming the beep sound is short and doesn't need to be stopped manually
+      // To stop SoundCloud music, reset the iframe src
+      soundcloudPlayer.src = "";
+    }
+
     function updateTimeSince() {
       if (!lastBlockTime) {
         timeSinceElement.textContent = "Time Since Last Block: N/A";
@@ -430,6 +438,12 @@
       const now = new Date();
       const diffInSeconds = Math.floor((now - lastBlockTime) / 1000);
       timeSinceElement.textContent = `Time Since Last Block: ${diffInSeconds}s`;
+
+      if (diffInSeconds > 10 && isLive) {
+        // No new block in 10 seconds, assume paused
+        console.log("No new block detected in 10 seconds. Assuming RPC has paused.");
+        updateState(false);
+      }
     }
 
     function startChecking() {
